@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-pong
+  labels:
+    app: app-pong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: api-pong
+  template:
+    metadata:
+      labels:
+        app: app-pong
+        service: api-pong
+    spec:
+      hostname: app-pong
+      containers:
+        - name: app-pong
+          image: isaiasmayonh/pong:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:80
+            - name: ConnectionStrings__SqlConnection
+              value: "SqlConnection desde k8s"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-pong
+  labels:
+    app: app-pong
+    service: api-pong
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    service: api-pong

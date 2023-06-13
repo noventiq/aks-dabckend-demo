@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: webapi
-          image: yyyyyyyy.azurecr.io/webapibrt:1.0
+          image: isaiasmayonh/webapi:1.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -25,6 +25,8 @@ spec:
           env:
             - name: ASPNETCORE_URLS
               value: http://+:80
+            - name: ConnectionStrings__SqlConnection
+              value: "SqlConnection desde k8s"
 ---
 apiVersion: v1
 kind: Service

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Data.SqlClient;
+using System.Net.Http.Headers;
 using System.Reflection.PortableExecutable;
 
 namespace WebApiBritanico.Controllers
@@ -19,9 +20,9 @@ namespace WebApiBritanico.Controllers
         }
 
         [HttpGet]
-        public IEnumerable<Customer> Search(string? name)
+        public Conectividad Search(string? name)
         {
-            List<Customer> result = new List<Customer>();
+            Conectividad item = new Conectividad();
             string connectionString = _configuration.GetConnectionString("SqlConnection");
             try
             {
@@ -32,41 +33,29 @@ namespace WebApiBritanico.Controllers
                     using (SqlCommand sqlCommand = new SqlCommand(cmdText, sqlConnection))
                     {
                         sqlCommand.ExecuteScalar();
-                        result.Add(new Customer() { CustomerID = 1 });
+                        item.Satisfactorio = true;
+                        item.Mensaje = "Correcto";
+                        item.Detalle = "";
+                        item.ValorOriginal = connectionString;
+                        item.ValorCambiado = connectionString;
                     }
-                    //string cmdText = @"select top 50 CustomerID, Title, FirstName, MiddleName, LastName, CompanyName from SalesLT.Customer
-                    //                where @name IS NULL OR FirstName LIKE '%' + @name + '%'";
-                    //using (SqlCommand sqlCommand = new SqlCommand(cmdText, sqlConnection))
-                    //{
-                    //    sqlCommand.Parameters.Clear();
-                    //    sqlCommand.Parameters.Add(new SqlParameter("@name", name == null ? DBNull.Value : name));
-                    //    using (SqlDataReader reader = sqlCommand.ExecuteReader())
-                    //    {
-                    //        while (reader.Read())
-                    //        {
-                    //            Customer customer = new Customer();
-                    //            customer.CustomerID = reader.GetInt32(0);
-                    //            customer.Title = reader.IsDBNull(1) ? "": reader.GetString(1);
-                    //            customer.FirstName = reader.GetString(2);
-                    //            customer.MiddleName = reader.IsDBNull(3) ? "" : reader.GetString(3);
-                    //            customer.LastName = reader.GetString(4);
-                    //            customer.CompanyName = reader.GetString(5);
-                    //            result.Add(customer);
-                    //        }
-                    //    }
-                    //}
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
-                throw new Exception(string.Format("SqlConnection: {0}, name: {1}", connectionString, name), ex);
+                Console.WriteLine("SqlConnection: {0}, name: {1}, exception: {2}", connectionString, name, ex.ToString());
+                item.Satisfactorio = true;
+                item.Mensaje = "Error";
+                item.Detalle = string.Format("SqlConnection: {0}, name: {1}, exception: {2}", connectionString, name, ex.ToString());
+                item.ValorOriginal = connectionString;
+                item.ValorCambiado = connectionString;
             }
-            return result;
+
+            return item;
         }
 
         [HttpGet("list")]
-        public IEnumerable<Customer>Getall()
+        public IEnumerable<Customer> Getall()
         {
             List<Customer> result = new List<Customer>();
             for (int i = 0; i < 10; i++)
@@ -80,8 +69,67 @@ namespace WebApiBritanico.Controllers
                 customer.CompanyName = "CompanyName " + i;
                 result.Add(customer);
             }
-            
+
             return result;
         }
+    
+        [HttpGet("ping")]
+        public async Task<string> GetPing([FromQuery]string url)
+        {
+            string detalle = string.Empty;
+            try
+            {
+                using(var client = new HttpClient())
+                {
+                    client.BaseAddress = new Uri(url);
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    HttpResponseMessage response = await client.GetAsync("api/v1/ping");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        detalle = await response.Content.ReadAsStringAsync();
+                    }
+                    else
+                    {
+                        detalle = "Internal server Error";
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                detalle = ex.ToString();
+            }
+            return detalle;
+        }
+
+        [HttpGet("pong")]
+        public async Task<string> GetPong([FromQuery]string url)
+        {
+            string detalle = string.Empty;
+            try
+            {
+                using(var client = new HttpClient())
+                {
+                    client.BaseAddress = new Uri(url);
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    HttpResponseMessage response = await client.GetAsync("api/v1/pong");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        detalle = await response.Content.ReadAsStringAsync();
+                    }
+                    else
+                    {
+                        detalle = "Internal server Error";
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                detalle = ex.ToString();
+            }
+            return detalle;
+        }
+    
     }
 }

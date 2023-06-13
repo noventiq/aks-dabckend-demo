@@ -19,7 +19,7 @@ Referencia: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli
 ### Iniciar sesión y usar suscripción azure
 `az login`
 
-`az account set --subscription 07fbccc0-2218-4dfe-xxxx-xxxxxxxxxxxx`
+`az account set --subscription 07fbccc0-2218-xxxx-xxx-xxxxxxx`
 
 ## Iniciar sesión en azure container registry
 `az acr login --name yyyyyyyyyy`
@@ -102,7 +102,7 @@ Referencia: https://learn.microsoft.com/es-es/azure/aks/configure-azure-cni
 
 ## Generación de imagen docker
 ```
-docker build . -t webapibrt:1.0 --> docker hub
+docker build . -t webapi:1.0 --> docker hub
 
 docker build . -t yyyyyyyyyy.azurecr.io/webapibrt:1.0 <-- acr
 ```
@@ -121,17 +121,246 @@ kubectl exec -it network-multitool -- /bin/sh
 ```
 
 # validar desde el pod que esté respondiendo el API desde localhost
-```
+```ps
 kubectl apply -f .\sk8\pod-webapibrt.yaml
-kubectl exec -it webapibrt -- /bin/sh
+kubectl exec -it pod/app-ping-85c85c6d5d-l5dns -- /bin/sh
 apt update <-- opcional, si el pod no tiene instalado curl
 apt install curl <-- opcional, si el pod no tiene instalado curl
 curl -v -X 'GET' 'http://localhost/v1/Customer?name=a' -H 'accept: application/json'
+curl -v -X 'GET' 'http://api-ping.default.svc.cluster.local/api/v1/ping' -H 'accept: application/json'
+curl -v -X 'GET' 'http://api-pong.default.svc.cluster.local/api/v1/pong' -H 'accept: application/json'
 ```
 
 # desplegar
-```
+```ps
 kubectl apply -f .\sk8\deploy-webapi-cloud.yaml
 
 kubectl get services,deployments,pods
 ```
+
+```dockerfile
+.
+.
+.
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
+ENV ConnectionStrings__SqlConnection="desde docker por defecto"
+WORKDIR /app
+.
+.
+.
+```
+
+Construimos la imagen
+```ps
+docker build . -t webapi:1.0
+```
+
+Ponemos en marcha el contenedor `sin argumento`
+```ps
+docker run -it -p 8090:80 webapi:1.0
+```
+
+Luego probamos para ver el valor que tomó la variable
+
+```ps
+curl http://localhost:8090/v1/Customer?name=a
+```
+
+Ponemos en marcha el contenedor `sin argumento`
+```ps
+docker run -it -e ConnectionStrings__SqlConnection="desde docker env" -p 8090:80 webapi:1.0
+```
+
+Luego probamos para ver el valor que tomó la variable
+
+```ps
+curl http://localhost:8090/v1/Customer?name=a
+```
+
+kubectl describe ingress example-ingress
+
+### Instale el `ingress controller NGINX`
+Escoja la versión correcta de nginx controller `https://github.com/kubernetes/ingress-nginx#supported-versions-table`
+
+Instalará el controlador en el espacio de nombres ingress-nginx, creando ese espacio de nombres si aún no existe.
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.0/deploy/static/provider/cloud/deploy.yaml
+```
+
+### Compruebe que el módulo `ingress controller` se está ejecutando
+
+`https://github.com/kubernetes/ingress-nginx#supported-versions-table`
+
+```
+kubectl get pods --namespace ingress-nginx
+```
+
+### Verifique que al `ingress controller NGINX` se le haya asignado una dirección IP pública
+
+```
+kubectl get service ingress-nginx-controller --namespace=ingress-nginx
+```
+
+### Configure una aplicación web básica para probar nuestro nuevo `ingress controller`
+Reemplazar el texto [DNS_NAME] con tu dominio correcto, ejemplo: www.estudio.pe
+
+```
+kubectl create ingress demo --class=nginx --rule [DNS_NAME]/=demo:80
+```
+
+### Configurar sus aplicaciones web
+
+aks-application-one.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapi
+  labels:
+    app: weather-forecast
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: webapi
+  template:
+    metadata:
+      labels:
+        app: weather-forecast
+        service: webapi
+    spec:
+      containers:
+        - name: webapi
+          image: isaiasmayonh/webapi:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:80
+            - name: ConnectionStrings__SqlConnection
+              value: "SqlConnection desde k8s"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapi
+  labels:
+    app: weather-forecast
+    service: webapi
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    service: webapi
+```
+
+aks-application-two.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapi
+  labels:
+    app: weather-forecast
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: webapi
+  template:
+    metadata:
+      labels:
+        app: weather-forecast
+        service: webapi
+    spec:
+      containers:
+        - name: webapi
+          image: isaiasmayonh/webapi:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:80
+            - name: ConnectionStrings__SqlConnection
+              value: "SqlConnection desde k8s"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapi
+  labels:
+    app: weather-forecast
+    service: webapi
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    service: webapi
+```
+
+Aplicar la configuración de tus aplicaciones web:
+
+```
+kubectl apply -f aks-application-one.yaml --namespace ingress-nginx
+kubectl apply -f aks-application-two.yaml --namespace ingress-nginx
+```
+
+Revisar que estén ejecutandose las aplicaciones
+
+```
+kubectl get pods --namespace ingress-nginx
+```
+
+### Configure Ingress para enrutar el tráfico entre las dos aplicaciones
+
+Crear archivo example-ingerss.yaml
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: webapi
+            port: 
+              number: 80
+```
+
+### Crear ingress 
+
+```
+kubectl apply -f hello-world-ingress.yaml --namespace ingress-nginx
+```
+
+Referencia: https://spacelift.io/blog/kubernetes-ingress
+
+
+### Crear secret 
+kubectl create secret tls proxy-xxxxxxx-xxx-xxxx-tls-secret --key brxxxxx.key --cert STAR_xxxx_xxxx_pe.crt
+
+kubectl get secret
