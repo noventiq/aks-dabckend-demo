@@ -9,7 +9,7 @@ resources:
 - repo: self
 
 variables:
-  ImageName: 'isaiasmayonj/webapi:$(Build.BuildId)'
+  ImageName: 'isaiasmayonh/webapi:$(Build.BuildId)'
  
 stages:
 - stage: Build
