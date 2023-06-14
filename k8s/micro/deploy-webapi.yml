@@ -18,7 +18,7 @@ spec:
       hostname: app-api
       containers:
         - name: app-api
-          image: isaiasmayonh/webapi:10.0
+          image: $(ImageName)
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
