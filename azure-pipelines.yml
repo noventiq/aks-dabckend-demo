@@ -1,0 +1,53 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- master
+
+resources:
+- repo: self
+
+variables:
+  ImageName: 'isaiasmayonh/webapi:$(Build.BuildId)'
+ 
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:  
+  - job: Build
+    displayName: Build and push Docker image
+    steps:
+    # - task: Docker@1
+    #   displayName: 'Build the Docker image'
+    #   inputs:
+    #     containerregistrytype: 'Container Registry'
+    #     dockerRegistryEndpoint: 'DockerConnection'
+    #     command: 'Build an image'
+    #     dockerFile: 'Dockerfile'
+    #     imageName: '$(ImageName)'
+    #     includeLatestTag: true
+    #     useDefaultContext: false
+    #     buildContext: '.'
+     
+    # - task: Docker@1
+    #   displayName: 'Push the Docker image to Dockerhub'
+    #   inputs:
+    #     containerregistrytype: 'Container Registry'
+    #     dockerRegistryEndpoint: 'DockerConnection'
+    #     command: 'Push an image'
+    #     imageName: '$(ImageName)'
+    #   condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+
+    - task: CopyFiles@2
+      displayName: 'Copiar archivo yaml'
+      inputs:
+        SourceFolder: './k8s/micro'
+        Contents: 'deploy-webapi.yml'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        OverWrite: true
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
