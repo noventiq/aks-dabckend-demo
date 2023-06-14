@@ -26,8 +26,8 @@ spec:
           env:
             - name: ASPNETCORE_URLS
               value: http://+:80
-            - name: #{ConnectionStrings__SqlConnection}#
-              value: "SqlConnection desde k8s"
+            - name: ConnectionStrings__SqlConnection
+              value: #{ConnectionStrings__SqlConnection}#
 ---
 apiVersion: v1
 kind: Service
